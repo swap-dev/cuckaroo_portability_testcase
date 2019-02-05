@@ -5,6 +5,8 @@
 #include <unistd.h>
 #include <string.h>
 #include "portable_endian.h"    // for htole32/64
+#include "int-util.h"
+#include <stdbool.h>
 
 typedef struct siphash_keys__
 {
@@ -110,6 +112,32 @@ int verify(uint32_t edges[PROOFSIZE], siphash_keys *keys) {
 	return n == PROOFSIZE ? POW_OK : POW_SHORT_CYCLE;
 }
 
+static inline bool cadd(uint64_t a, uint64_t b) {
+	return a + b < a;
+}
+
+static inline bool cadc(uint64_t a, uint64_t b, bool c) {
+	return a + b < a || (c && a + b == (uint64_t) -1);
+}
+
+int check_hash(char *hash, uint64_t difficulty) {
+	uint64_t low, high, top, cur;
+	// First check the highest word, this will most likely fail for a random hash.
+	top = mul128(swap64le(((const uint64_t *) hash)[3]), difficulty, &high);
+	if (high != 0) {
+		return 0;
+	}
+	low = mul128(swap64le(((const uint64_t *) hash)[0]), difficulty, &cur);
+	low = mul128(swap64le(((const uint64_t *) hash)[1]), difficulty, &high);
+	int carry = cadd(cur, low);
+	cur = high;
+	low = mul128(swap64le(((const uint64_t *) hash)[2]), difficulty, &high);
+	carry = cadc(cur, low, carry);
+	carry = cadc(high, top, carry);
+	return !carry;
+}
+
+
 int main(int argc, char **argv) {
 
 	char header[10];
@@ -129,16 +157,18 @@ int main(int argc, char **argv) {
 	uint32_t edges[PROOFSIZE] = {3630647,22264576,26481684,36143584,40488771,56761690,75686903,91358206,105443927,133707559,142538312,144073846,154225649,166535986,185598250,215815903,224309845,224640377,224804206,262593054,281141248,284953652,293013797,299650808,358596672,370503515,392338062,404082256,413152628,414566961,424678135,426480708,437276687,452007991,463625388,469139392,473621789,487064831,498476194,523712905,526070495,527478662};
 
 	printf("result: %s\n",errstr[verify(edges,&keys)]);
-		
 	unsigned char cyclehash[32];
+
 	blake2b((void *)cyclehash, sizeof(cyclehash), (const void *)edges, sizeof(edges), 0, 0);
 	for (int i=0; i<32; i++)
 		printf("%02x", cyclehash[i]);
 	printf("\n");
+	printf("checkdiff 3: %i\n",check_hash(cyclehash,3));
+	printf("checkdiff 4: %i\n",check_hash(cyclehash,4));
 
-//hexHeader '0002'
-//nonce     12
-//Solution  376637 153bb00 1941414 22781e0 269cf43 3621d5a 482e3f7 57203fe 648f257 7f83727 87ef648 8966476 9314bf1 9ed2332 b10012a cdd16df d5eb255 d63bd79 d663d6e fa6da1e 10c1e000 10fc0c34 11770925 11dc4ef8 155fc040 16156f5b 17629a8e 1815ce50 18a03574 18b5ca31 195012f7 196b9444 1a10500f 1af11837 1ba25cac 1bf67fc0 1c3ae51d 1d0804ff 1db624a2 1f373989 1f5b32df 1f70af86
-//cyclehash 852afb15e0f20dd003ca76d88488f6506d344f9c50bfc48a1d6cce3b484c1b50
-
+//hexHeader  '0002'
+//nonce      12
+//Solution   376637 153bb00 1941414 22781e0 269cf43 3621d5a 482e3f7 57203fe 648f257 7f83727 87ef648 8966476 9314bf1 9ed2332 b10012a cdd16df d5eb255 d63bd79 d663d6e fa6da1e 10c1e000 10fc0c34 11770925 11dc4ef8 155fc040 16156f5b 17629a8e 1815ce50 18a03574 18b5ca31 195012f7 196b9444 1a10500f 1af11837 1ba25cac 1bf67fc0 1c3ae51d 1d0804ff 1db624a2 1f373989 1f5b32df 1f70af86
+//cyclehash  852afb15e0f20dd003ca76d88488f6506d344f9c50bfc48a1d6cce3b484c1b50
+//difficulty 3
 }
