@@ -6,7 +6,6 @@
 #include <string.h>
 #include "portable_endian.h"    // for htole32/64
 #include "int-util.h"
-#include <stdbool.h>
 
 typedef struct siphash_keys__
 {
@@ -112,11 +111,11 @@ int verify(uint32_t edges[PROOFSIZE], siphash_keys *keys) {
 	return n == PROOFSIZE ? POW_OK : POW_SHORT_CYCLE;
 }
 
-static inline bool cadd(uint64_t a, uint64_t b) {
+static inline int cadd(uint64_t a, uint64_t b) {
 	return a + b < a;
 }
 
-static inline bool cadc(uint64_t a, uint64_t b, bool c) {
+static inline int cadc(uint64_t a, uint64_t b, int c) {
 	return a + b < a || (c && a + b == (uint64_t) -1);
 }
 
