@@ -298,3 +298,15 @@ int blake2b( void *out, size_t outlen, const void *in, size_t inlen, const void 
   blake2b_final( S, out, outlen );
   return 0;
 }
+
+int blake2( void *out, size_t outlen, const void *in, size_t inlen, const void *key, size_t keylen ) {
+  return blake2b(out, outlen, in, inlen, key, keylen);
+}
+
+#if defined(SUPERCOP)
+int crypto_hash( unsigned char *out, unsigned char *in, unsigned long long inlen )
+{
+  return blake2b( out, BLAKE2B_OUTBYTES, in, inlen, NULL, 0 );
+}
+#endif
+
